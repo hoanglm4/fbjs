@@ -338,6 +338,7 @@ async function facebookLogIn(arguments, page, setPageListeners) {
       el.click();
     }, acceptCookiesButton);
   } catch (error) {
+    console.log(error);
     console.info('Cookie banner did not appear');
   }
   /**
@@ -462,9 +463,11 @@ async function facebookMain(
 
   // List contains all publications
   // Variable indicates if any new posts found on the page
+  const running = true;
+  let reloadCount = 0;
   do {
     if (arguments['debug'] === true) {
-      console.log(`Total posts before scraping ${allPublicationsList.length}`);
+      // console.log(`Total posts before scraping ${allPublicationsList.length}`);
     }
     // eslint-disable-next-line no-var
     var isAnyNewPosts = false;
@@ -480,6 +483,7 @@ async function facebookMain(
     );
 
 
+    let newPostsCount = 0;
     // Looping on each group post html elemen to get text and author
     for (let i = 0; i < groupPostsAuthorHtmlElemments.length; i++) {
       const [postAuthorName, postTextContent] = await page.evaluate(
@@ -525,16 +529,23 @@ async function facebookMain(
       if (isPublicationExists === false) {
         allPublicationsList.push(publication);
         isAnyNewPosts = true;
+        newPostsCount++;
+        console.log('[New posts]', publication);
       }
     }
+
+    reloadCount++;
 
     /**
      * All html group post elements are added on
      * global publictions list (allPublictionList)
      **/
     if (arguments['debug'] === true) {
-      console.log('Total posts before scrolling' + allPublicationsList.length);
+      // console.log('Total posts before scrolling' + allPublicationsList.length);
     }
+    console.log(`[facebookMain] reloadCount = ${reloadCount}`);
+    console.log(`[facebookMain] newPostsCount = ${newPostsCount}`);
+    // console.log(`[facebookMain] allPublicationsList=`, allPublicationsList);
     /**
      *  console.log(`Total posts before
      * scrolling ${allPublicationsList.length}`);
@@ -542,8 +553,10 @@ async function facebookMain(
     // Both console.log statement above are same
 
 
-    await autoScroll(page, sleep);
-  } while (isAnyNewPosts === true);
+    // await autoScroll(page, sleep);
+    await sleep(5000);
+    await page.reload();
+  } while (running);
   console.info(
       groupName +
       ' Facebook group\'s posts scraped: ' +
