@@ -478,6 +478,9 @@ async function facebookMain(
     const groupPostsHtmlElements = await page.$x(
         '//article/div[@class="story_body_container"]/div[1]',
     );
+    const groupPostsContactSellerHtmlElements = await page.$x(
+        '//article/div[@class="story_body_container"]/div[2]/div[1]//p',
+    );
     const groupPostsAuthorHtmlElemments = await page.$x(
         '((//article/div[@class="story_body_container"])' +
         '[child::div])/header//strong[1]/a',
@@ -498,8 +501,9 @@ async function facebookMain(
         postTextContent,
         postTimeTextContent,
         postUrl,
+        postContent2,
       ] = await page.evaluate(
-          (el, eb, abbr) => {
+          (el, eb, abbr, sellerP) => {
             return [
               el.textContent,
               el.href,
@@ -507,11 +511,13 @@ async function facebookMain(
               eb.textContent,
               abbr.textContent,
               abbr.parentNode.pathname,
+              sellerP ? sellerP.textContent : '',
             ];
           },
           groupPostsAuthorHtmlElemments[i],
           groupPostsHtmlElements[i],
           groupPostsTimeHtmlElemments[i],
+          groupPostsContactSellerHtmlElements[i],
       );
       await groupPostsAuthorHtmlElemments[i]
           .$x('//article/div[@class="story_body_container"]//span[1]/p');
@@ -521,8 +527,9 @@ async function facebookMain(
       const authorParams = getUrlParams(postAuthorHref);
       const publication = {
         author: postAuthorName,
-        authorId: authorParams.id || postAuthorPathName,
-        post: postTextContent,
+        authorId: authorParams.id,
+        authorAccount: postAuthorPathName,
+        post: postTextContent || postContent2,
         time: postTimeTextContent,
         postUrl: postUrl,
         groupId: authorParams.groupid,
