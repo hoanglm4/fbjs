@@ -214,7 +214,7 @@ async function autoScroll(page, sleep) {
     }
 
     for (let i = 0; i < Math.round((Math.random() * 10) + 10); i++) {
-      window.scrollBy(0, document.body.scrollHeight);
+      window.scrollBy(0, -document.body.scrollHeight);
       await sleep(
           Math.round(
               (Math.random() * 4000) + 1000,
@@ -465,6 +465,7 @@ async function facebookMain(
   // Variable indicates if any new posts found on the page
   const running = true;
   let reloadCount = 0;
+  const startTime = new Date();
   do {
     if (arguments['debug'] === true) {
       // console.log(`Total posts before scraping ${allPublicationsList.length}`);
@@ -479,28 +480,52 @@ async function facebookMain(
     );
     const groupPostsAuthorHtmlElemments = await page.$x(
         '((//article/div[@class="story_body_container"])' +
-        '[child::div])/header//strong[1]',
+        '[child::div])/header//strong[1]/a',
+    );
+    const groupPostsTimeHtmlElemments = await page.$x(
+        '((//article/div[@class="story_body_container"])' +
+        '[child::div])/header//abbr[1]',
     );
 
 
     let newPostsCount = 0;
     // Looping on each group post html elemen to get text and author
     for (let i = 0; i < groupPostsAuthorHtmlElemments.length; i++) {
-      const [postAuthorName, postTextContent] = await page.evaluate(
-          (el, eb) => {
-            return [el.textContent, eb.textContent];
+      const [
+        postAuthorName,
+        postAuthorHref,
+        postAuthorPathName,
+        postTextContent,
+        postTimeTextContent,
+        postUrl,
+      ] = await page.evaluate(
+          (el, eb, abbr) => {
+            return [
+              el.textContent,
+              el.href,
+              el.pathname,
+              eb.textContent,
+              abbr.textContent,
+              abbr.parentNode.pathname,
+            ];
           },
           groupPostsAuthorHtmlElemments[i],
           groupPostsHtmlElements[i],
+          groupPostsTimeHtmlElemments[i],
       );
       await groupPostsAuthorHtmlElemments[i]
           .$x('//article/div[@class="story_body_container"]//span[1]/p');
 
 
       // crates a publication object which contains our publication
+      const authorParams = getUrlParams(postAuthorHref);
       const publication = {
-        post: postAuthorName,
-        author: postTextContent,
+        author: postAuthorName,
+        authorId: authorParams.id || postAuthorPathName,
+        post: postTextContent,
+        time: postTimeTextContent,
+        postUrl: postUrl,
+        groupId: authorParams.groupid,
       };
 
       // variable indicates if publication exists in allPublicationsList
@@ -543,8 +568,11 @@ async function facebookMain(
     if (arguments['debug'] === true) {
       // console.log('Total posts before scrolling' + allPublicationsList.length);
     }
-    console.log(`[facebookMain] reloadCount = ${reloadCount}`);
-    console.log(`[facebookMain] newPostsCount = ${newPostsCount}`);
+    if (newPostsCount > 0) {
+      console.log(`[facebookMain] reloadCount = ${reloadCount}`);
+      console.log(`[facebookMain] newPostsCount = ${newPostsCount}`);
+    }
+   
     // console.log(`[facebookMain] allPublicationsList=`, allPublicationsList);
     /**
      *  console.log(`Total posts before
@@ -552,9 +580,19 @@ async function facebookMain(
     **/
     // Both console.log statement above are same
 
+    // close when crawler about 1 hours
+    const duration = (new Date() - startTime) / 1000;
+    if (duration > 3600) {
+      console.log(`[facebookMain] close crawler when duration greater 1 hours`, duration);
+      break;
+    }
 
     // await autoScroll(page, sleep);
-    await sleep(5000);
+    await sleep(
+        Math.round(
+            (Math.random() * 4000) + 30000,
+        ),
+    );
     await page.reload();
   } while (running);
   console.info(
@@ -670,6 +708,8 @@ if (arguments['_'].indexOf('init') !== -1) {
   });
 } else {
   if (arguments['group-ids'] !== undefined && arguments['group-ids'] !== null) {
+    const startTime = new Date();
+    console.log('Facebook group scraping started', startTime);
     main(
         arguments,
         askConfigQuestions,
@@ -683,7 +723,12 @@ if (arguments['_'].indexOf('init') !== -1) {
         autoScroll,
         sleep,
     ).then(() => {
-      console.log('Facebook group scraping done');
+      const endTime = new Date();
+      console.log('Facebook group scraping done', (endTime - startTime) / 1000);
+    }).catch((ex) => {
+      const endTime = new Date();
+      // eslint-disable-next-line max-len
+      console.log('Facebook group scraping failed', (endTime - startTime) / 1000, ex);
     });
   } else {
     error('No argument specified. Please check help page for valid arguments');
@@ -691,3 +736,14 @@ if (arguments['_'].indexOf('init') !== -1) {
     process.exit(1);
   }
 }
+
+function getUrlParams(search) {
+  const hashes = search.slice(search.indexOf('?') + 1).split('&');
+  const params = {};
+  hashes.map((hash) => {
+    const [key, val] = hash.split('=');
+    params[key] = decodeURIComponent(val);
+  });
+  return params;
+}
+
