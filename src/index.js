@@ -355,6 +355,7 @@ async function facebookLogIn(arguments, page, setPageListeners) {
   // Focusing on the password input
   await page.focus(selectors.login_form.password);
   // Typing the facebook password on password input
+  console.log('password', config.get('password'))
   await page.keyboard.type(config.get('password'));
   // Clicking on the submit button
   await page.waitForXPath('//button[@data\-testid="royal_login_button"]');
@@ -465,7 +466,7 @@ async function facebookMain(
   // Variable indicates if any new posts found on the page
   const running = true;
   let reloadCount = 0;
-  const startTime = new Date();
+  let startTime = new Date();
   do {
     if (arguments['debug'] === true) {
       // console.log(`Total posts before scraping ${allPublicationsList.length}`);
@@ -591,13 +592,14 @@ async function facebookMain(
     const duration = (new Date() - startTime) / 1000;
     if (duration > 3600) {
       console.log(`[facebookMain] close crawler when duration greater 1 hours`, duration);
-      break;
+      await sleep(15 * 60 * 1000);
+      startTime = new Date();
     }
 
     // await autoScroll(page, sleep);
     await sleep(
         Math.round(
-            (Math.random() * 4000) + 30000,
+            (Math.random() * 4000) + 20000,
         ),
     );
     await page.reload();
